@@ -1,0 +1,266 @@
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
+
+// ================= .env (tanpa dependency tambahan) =================
+const ENV_FILE = path.join(__dirname, '.env');
+if (fs.existsSync(ENV_FILE)) {
+    for (const line of fs.readFileSync(ENV_FILE, 'utf8').split(/\r?\n/)) {
+        const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+        if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
+    }
+}
+const env = (k, d = '') => (process.env[k] === undefined || process.env[k] === '') ? d : process.env[k];
+
+function saveEnv(key, value) {
+    let txt = fs.existsSync(ENV_FILE) ? fs.readFileSync(ENV_FILE, 'utf8') : '';
+    const re = new RegExp(`^\\s*${key}\\s*=.*$`, 'm');
+    txt = re.test(txt) ? txt.replace(re, () => `${key}=${value}`) : txt + `\n${key}=${value}\n`;
+    fs.writeFileSync(ENV_FILE, txt);
+    process.env[key] = value;
+}
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ noServer: true });
+// Upload/kompres besar tidak boleh terpotong timeout bawaan Node
+server.requestTimeout = 0;
+server.headersTimeout = 0;
+server.keepAliveTimeout = 120000;
+const PORT = +env('PORT', 3000);
+const storage = require('./storage');   // penyimpanan file di flash disk (lewat su)
+const T = require('./lang');            // pesan server sesuai bahasa aktif (LANGUAGE di .env)
+
+// ================= SESSION & AUTH =================
+const sessions = new Map(); // sid -> waktu kedaluwarsa
+const TTL = +env('SESSION_TTL_HOURS', 12) * 3600 * 1000;
+const sha = s => crypto.createHash('sha256').update(String(s)).digest();
+const same = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
+
+function isAuthed(req) {
+    const m = /(?:^|;\s*)sid=([a-f0-9]+)/.exec(req.headers.cookie || '');
+    const exp = m && sessions.get(m[1]);
+    if (!exp) return false;
+    if (exp < Date.now()) { sessions.delete(m[1]); return false; }
+    return true;
+}
+const requireAuth = (req, res, next) => isAuthed(req) ? next() : res.status(401).json({ error: T('auth.notLoggedIn') });
+setInterval(() => { for (const [k, v] of sessions) if (v < Date.now()) sessions.delete(k); }, 600000).unref();
+
+// ================= TELEGRAM =================
+async function notify(text) {
+    const tok = env('TELEGRAM_BOT_TOKEN'), chat = env('TELEGRAM_CHAT_ID');
+    if (!tok || !chat) return false;
+    try {
+        const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chat, text }), signal: AbortSignal.timeout(8000)
+        });
+        return (await r.json()).ok === true;
+    } catch { return false; }
+}
+
+// Bantu cari chat id: tampil di console saat server start (lalu salin ke .env)
+async function detectChat() {
+    const tok = env('TELEGRAM_BOT_TOKEN');
+    if (!tok || env('TELEGRAM_CHAT_ID')) return;
+    try {
+        const r = await (await fetch(`https://api.telegram.org/bot${tok}/getUpdates`, { signal: AbortSignal.timeout(8000) })).json();
+        const ids = [...new Set((r.result || []).map(u => (u.message || u.my_chat_member || {}).chat).filter(Boolean)
+            .map(c => `${c.id} (${c.first_name || c.title || c.username || '-'})`))];
+        console.log(ids.length ? `[Telegram] Isi TELEGRAM_CHAT_ID di .env. Kandidat: ${ids.join(', ')}`
+            : '[Telegram] TELEGRAM_CHAT_ID kosong. Kirim /start ke bot, lalu restart server.');
+    } catch { console.log('[Telegram] Gagal membaca getUpdates (cek internet / token).'); }
+}
+
+// ================= WEBSOCKET =================
+function broadcast(obj) {
+    const msg = JSON.stringify(obj);
+    wss.clients.forEach(c => { if (c.readyState === WebSocket.OPEN) c.send(msg); });
+}
+
+server.on('upgrade', (req, socket, head) => {
+    if (!isAuthed(req)) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return socket.destroy(); }
+    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
+});
+
+// ================= MIDDLEWARE =================
+app.use(express.json());
+// Bahasa aktif boleh dibaca sebelum login (halaman login ikut bahasa tersimpan)
+app.get('/api/settings/lang', (req, res) => res.json({ lang: env('LANGUAGE', 'id') }));
+// Semua API data, file, dan ESP32 wajib login (halaman login di /public tetap terbuka)
+app.use(['/api/files', '/api/create-folder', '/api/download', '/api/upload', '/api/rename', '/api/paste', '/api/storage', '/api/compress', '/api/esp32', '/api/door', '/api/system', '/api/settings', '/uploads'], requireAuth);
+
+// Ganti bahasa web (disimpan ke .env, berlaku untuk semua tulisan termasuk pesan server)
+app.post('/api/settings/lang', (req, res) => {
+    const l = String((req.body || {}).lang || '');
+    if (!T.DICT[l]) return res.status(400).json({ success: false, message: T('set.badLang') });
+    saveEnv('LANGUAGE', l);
+    res.json({ success: true, message: T('set.saved') });
+});
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ================= API AUTH =================
+const fails = new Map(); // ip -> { n, until }
+
+app.post('/api/login', (req, res) => {
+    const f = fails.get(req.ip) || { n: 0, until: 0 };
+    if (f.until > Date.now()) return res.status(429).json({ success: false, message: T('auth.tooMany') });
+
+    const { username = '', password = '' } = req.body || {};
+    const ok = same(username, env('ADMIN_USERNAME', 'admin')) & same(password, env('ADMIN_PASSWORD'));
+    if (!ok || !env('ADMIN_PASSWORD')) {
+        f.n++;
+        if (f.n >= 5) { f.n = 0; f.until = Date.now() + 5 * 60 * 1000; }
+        fails.set(req.ip, f);
+        return res.status(401).json({ success: false, message: T('auth.wrong') });
+    }
+    fails.delete(req.ip);
+    const sid = crypto.randomBytes(32).toString('hex');
+    sessions.set(sid, Date.now() + TTL);
+    res.setHeader('Set-Cookie', `sid=${sid}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(TTL / 1000)}`);
+    res.json({ success: true, message: T('auth.loginOk') });
+});
+
+app.get('/api/session', (req, res) => res.json({ authenticated: isAuthed(req) }));
+
+app.post('/api/logout', (req, res) => {
+    const m = /(?:^|;\s*)sid=([a-f0-9]+)/.exec(req.headers.cookie || '');
+    if (m) sessions.delete(m[1]);
+    res.setHeader('Set-Cookie', 'sid=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
+    res.json({ success: true });
+});
+
+// ---- Reset password: OTP Telegram -> token sekali pakai -> ganti password ----
+let otp = null, resetTok = null;
+
+app.post('/api/request-otp', async (req, res) => {
+    if (!env('TELEGRAM_BOT_TOKEN') || !env('TELEGRAM_CHAT_ID'))
+        return res.status(400).json({ success: false, message: T('otp.noTelegram') });
+    if (otp && Date.now() - otp.sent < 60000)
+        return res.status(429).json({ success: false, message: T('otp.wait') });
+
+    const code = String(crypto.randomInt(100000, 1000000));
+    if (!(await notify(T('otp.tgMsg', { code }))))
+        return res.status(500).json({ success: false, message: T('otp.sendFail') });
+    otp = { code, sent: Date.now(), exp: Date.now() + 600000, tries: 0 };
+    res.json({ success: true, message: T('otp.sent') });
+});
+
+app.post('/api/verify-otp', (req, res) => {
+    const code = String((req.body || {}).code || '').trim();
+    if (!otp || otp.exp < Date.now() || otp.tries >= 5)
+        return res.status(400).json({ success: false, message: T('otp.expired') });
+    otp.tries++;
+    if (!same(code, otp.code)) return res.status(400).json({ success: false, message: T('otp.wrong') });
+    otp = null;
+    resetTok = { t: crypto.randomBytes(24).toString('hex'), exp: Date.now() + 600000 };
+    res.json({ success: true, message: T('otp.ok'), token: resetTok.t });
+});
+
+app.post('/api/reset-password', (req, res) => {
+    const { newPassword, confirmPassword, token } = req.body || {};
+    if (!resetTok || resetTok.exp < Date.now() || !same(token || '', resetTok.t))
+        return res.status(403).json({ success: false, message: T('reset.invalid') });
+    if (!newPassword || newPassword.length < 8 || /[\r\n]/.test(newPassword))
+        return res.status(400).json({ success: false, message: T('reset.tooShort') });
+    if (newPassword !== confirmPassword)
+        return res.status(400).json({ success: false, message: T('reset.mismatch') });
+
+    saveEnv('ADMIN_PASSWORD', newPassword);
+    resetTok = null;
+    sessions.clear();
+    res.json({ success: true, message: T('reset.ok') });
+});
+
+// ================= ESP32 MONITOR =================
+const esp32 = require('./esp32')({ app, broadcast, notify });
+// ================= PINTU RFID (ESP8266) =================
+const door = require('./door')({ app, broadcast, notify });
+// ================= MONITOR SISTEM (CPU/RAM/flash disk) =================
+const system = require('./system')({ app, broadcast });
+
+wss.on('connection', ws => {
+    broadcast({ type: 'DEVICE_COUNT', count: wss.clients.size });
+    ws.send(JSON.stringify({ type: 'SENSOR', data: esp32.snapshot() }));
+    ws.send(JSON.stringify({ type: 'DOOR', data: door.snapshot() }));
+    ws.on('close', () => broadcast({ type: 'DEVICE_COUNT', count: wss.clients.size }));
+});
+
+// ================= FILE MANAGER (flash disk lewat su) =================
+// Semua file/folder ada di <STORAGE_DEVICE>/<STORAGE_FOLDER> (default /mnt/media_rw/8EB1-829D/upload).
+// Folder "upload" dibuat otomatis kalau belum ada; kalau sudah ada, dipakai apa adanya.
+const upload = multer({ storage: storage.engine() });
+const wrap = fn => async (req, res) => {
+    try { await fn(req, res); }
+    catch (e) { if (!res.headersSent) res.status(e.status || 500).json({ error: e.message }); else res.destroy(); }
+};
+
+app.get('/api/storage/status', wrap(async (req, res) => res.json(await storage.status())));
+
+app.get('/api/files', wrap(async (req, res) => {
+    const rel = req.query.dir || '';
+    res.json({ currentDir: rel, files: await storage.list(rel) });
+}));
+
+app.post('/api/create-folder', wrap(async (req, res) => {
+    const b = req.body || {}, name = storage.cleanName(b.folderName);
+    if (!name) return res.status(400).json({ error: T('st.badFolderName') });
+    await storage.mkdir(b.dir || '', name);
+    res.json({ success: true });
+}));
+
+app.get('/api/download', wrap((req, res) => storage.send(res, req.query.path || '', { zip: req.query.zip === '1' })));
+
+// Kompres file/folder menjadi .zip di folder yang sama (hasil tersimpan di flash disk)
+app.post('/api/compress', wrap(async (req, res) => {
+    const b = req.body || {}, name = storage.cleanName(b.name);
+    if (!name) return res.status(400).json({ error: T('st.badName') });
+    const out = await storage.compress((b.dir ? b.dir + '/' : '') + name);
+    res.json({ success: true, name: out });
+}));
+app.use('/uploads', wrap((req, res) => storage.send(res, decodeURIComponent(req.path), { inline: true })));
+
+app.post('/api/upload', (req, res) => {
+    upload.single('file')(req, res, err => {
+        if (err) return res.status(err.status || 500).json({ error: err.message || T('st.uploadFail') });
+        if (!req.file) return res.status(400).json({ error: T('st.noFile') });
+        res.json({ success: true, name: req.file.filename, size: req.file.size });
+    });
+});
+
+app.post('/api/rename', wrap(async (req, res) => {
+    const b = req.body || {}, a = storage.cleanName(b.oldName), n = storage.cleanName(b.newName);
+    if (!a || !n) return res.status(400).json({ error: 'Nama tidak valid' });
+    await storage.rename(b.dir || '', a, n);
+    res.json({ success: true });
+}));
+
+app.post('/api/paste', wrap(async (req, res) => {
+    const b = req.body || {};
+    await storage.paste(b.action, b.sourceDir || '', b.targetDir || '', b.items);
+    res.json({ success: true });
+}));
+
+app.delete('/api/files', wrap(async (req, res) => {
+    await storage.remove(req.query.path || '');
+    res.json({ success: true });
+}));
+
+server.listen(PORT, '0.0.0.0', () => {
+    const ips = Object.values(os.networkInterfaces()).flat().filter(i => i && i.family === 'IPv4' && !i.internal).map(i => i.address);
+    console.log('=================================');
+    (ips.length ? ips : ['localhost']).forEach(ip => console.log(`Server aktif: http://${ip}:${PORT}`));
+    console.log(`ESP32: http://${env('ESP32_IP', '(belum diisi)')}:${env('ESP32_PORT', 80)}`);
+    storage.status().then(st => console.log(st.ready ? `Penyimpanan: ${st.root} (siap, mode ${st.mode})` : `PENYIMPANAN BELUM SIAP: ${st.message}`));
+    console.log('=================================');
+    esp32.start();
+    door.start();
+    system.start();
+    detectChat();
+});
