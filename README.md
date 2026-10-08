@@ -82,48 +82,8 @@ Untuk Android/Termux:
 * Node.js pada Termux
 * Akses storage Termux
 * Flash disk/external storage jika diperlukan
-
-## Instalasi
-
-Clone repository:
-
-```bash
-git clone https://github.com/alfaidin/NodelixcoreOS
-cd NodelixcoreOS
-```
-
-Install dependency:
-
-```bash
-npm install
-```
-
-Buat konfigurasi lokal:
-
-```bash
-cp .env.example .env
-```
-
-Edit konfigurasi:
-
-```bash
-nano .env
-```
-
-**Jangan upload `.env` ke GitHub.**
-
-## Menjalankan Server
-
-```bash
-npm start
-```
-
-atau:
-
-```bash
-node server.js
-```
-
+* root magisk
+  
 Dengan port default:
 
 ```text
@@ -149,11 +109,23 @@ pkg update
 pkg upgrade
 pkg install nodejs git
 ```
+Untuk akses storage Android:
+
+```bash
+termux-setup-storage
+```
+
+Clone repository:
+
+```bash
+git clone https://github.com/alfaidin/NodelixcoreOS
+cd NodelixcoreOS
+```
 
 Masuk ke project:
 
 ```bash
-cd \~/NodelixcoreOS
+cd ~/NodelixcoreOS
 ```
 
 Install dependency:
@@ -165,7 +137,6 @@ npm install
 Buat `.env`:
 
 ```bash
-cp .env.example .env
 nano .env
 ```
 
@@ -173,18 +144,6 @@ Jalankan:
 
 ```bash
 npm start
-```
-
-Untuk akses storage Android:
-
-```bash
-termux-setup-storage
-```
-
-Kemudian periksa:
-
-```bash
-ls -lah \~/storage
 ```
 
 ## ESP32
