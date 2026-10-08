@@ -119,7 +119,6 @@ Clone repository:
 
 ```bash
 git clone https://github.com/alfaidin/NodelixcoreOS
-cd NodelixcoreOS
 ```
 
 Masuk ke project:
