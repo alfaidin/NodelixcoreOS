@@ -136,6 +136,10 @@ npm install
 Buat `.env`:
 
 ```bash
+cp .env.example .env
+```
+
+```bash
 nano .env
 ```
 
