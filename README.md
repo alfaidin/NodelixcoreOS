@@ -1,4 +1,4 @@
-# Server8 — Web Server \& Storage Manager
+# NodelixcoreOS — Web Server \& Storage Manager
 
 Server berbasis **Node.js + Express** yang dirancang untuk berjalan pada perangkat seperti **Android/Termux** dan digunakan sebagai server lokal untuk mengelola file, storage eksternal, perangkat ESP32, serta kontrol door lock.
 
