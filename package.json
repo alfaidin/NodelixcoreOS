@@ -4,7 +4,7 @@
   "description": "",
   "main": "esp32.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --check server.js && node --check terminal.js && node --check storage.js && node --check lang.js && node --check public/terminal.js && node --check public/i18n.js",
     "start": "node server.js"
   },
   "keywords": [],
