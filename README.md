@@ -1,6 +1,6 @@
 # NodelixcoreOS — Web Server \& Storage Manager
 
-Server berbasis **Node.js + Express** yang dirancang untuk berjalan pada perangkat seperti **Android/Termux** dan digunakan sebagai server lokal untuk mengelola file, storage eksternal, perangkat ESP32, serta kontrol door lock.
+Server berbasis **Node.js + Express** yang dirancang untuk berjalan pada perangkat seperti **Android/Termux** dan digunakan sebagai server lokal untuk mengelola file, storage eksternal, perangkat ESP32, serta kontrol lock door.
 
 Project ini menyediakan antarmuka web untuk mengelola penyimpanan dan berkomunikasi dengan perangkat IoT melalui HTTP/WebSocket.
 
@@ -19,7 +19,7 @@ Project ini menyediakan antarmuka web untuk mengelola penyimpanan dan berkomunik
 * Dukungan storage melalui Termux
 * Monitoring status storage
 * Integrasi ESP32
-* Integrasi ESP8266/ESP door lock
+* Integrasi ESP8266/ESP lock door
 * WebSocket untuk komunikasi real-time
 * Sistem notifikasi
 * Integrasi Telegram
@@ -28,7 +28,7 @@ Project ini menyediakan antarmuka web untuk mengelola penyimpanan dan berkomunik
 * Penyimpanan konfigurasi kalibrasi
 * Sistem migrasi storage dari penyimpanan lama ke storage eksternal
 
-## Teknologi
+## code
 
 * Node.js
 * Express
