@@ -130,3 +130,27 @@
 .lang-b:hover{background:#f6f9fd}
 .lang-b.lang-active{border-color:#2f78be;background:#eef5fc}
 .lang-b.lang-active i{color:#2f78be}
+
+/* ===== Tab Pengaturan: Terminal ===== */
+#term-card{min-width:0}
+.tm-sw{display:flex;align-items:center;border:0;background:none;padding:4px;cursor:pointer;border-radius:16px}
+.tm-sw[aria-checked=true] .sw{background:var(--amber)}
+.tm-sw[aria-checked=true] .sw::after{transform:translateX(22px)}
+.tm-screen{background:var(--ink);color:#dbe6fb;border-radius:14px;padding:12px 14px;height:min(50vh,420px);min-height:220px;overflow:auto;overscroll-behavior:contain;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text}
+.tm-ln{min-height:1.45em}
+.tm-c{color:#fcd34d}
+.tm-e{color:#fca5a5}
+.tm-m{color:#8ea0c0}
+.tm-ok{color:#6ee7b7}
+.tm-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.tm-chip{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:99px;padding:5px 11px;font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;cursor:pointer}
+.tm-chip:hover{background:#eef5fc;border-color:#2f78be}
+.tm-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.tm-line{flex:1 1 220px;display:flex;align-items:center;gap:8px;min-width:0}
+.tm-btns{display:flex;align-items:center;gap:8px;margin-left:auto}
+.tm-ps{flex:none;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#b45309}
+.tm-in{flex:1 1 0;width:0;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;font:16px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);background:#fff}
+.tm-in:focus{outline:none;border-color:#2f78be;box-shadow:0 0 0 3px #2f78be26}
+.tm-btns .ib{flex:none;width:34px;height:34px}
+.tm-form [hidden]{display:none}
+.tm-off{padding:16px 4px;color:var(--mut);text-align:center}

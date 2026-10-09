@@ -121,6 +121,19 @@
             'set.langDesc': 'Bahasa ini berlaku untuk semua tulisan di web, termasuk popup dan pesan dari server.',
             'set.id': 'Bahasa Indonesia', 'set.en': 'English', 'set.zh': '中文', 'set.saveFail': 'Gagal menyimpan bahasa',
 
+            'term.title': 'Terminal',
+            'term.desc': 'Jalankan perintah Termux dari web. Perintah berjalan di HP server sebagai user Termux (untuk root: su -c "perintah"). Proses latar belakang: nohup perintah > log 2>&1 &. Aplikasi layar penuh (nano, vim, top) tidak didukung.',
+            'term.warn': 'Hati-hati: siapa pun yang berhasil login bisa menjalankan perintah apa saja di HP ini. Pakai password kuat dan jangan buka port ke internet tanpa HTTPS/VPN.',
+            'term.switch': 'Aktifkan terminal', 'term.offMsg': 'Terminal sedang dimatikan. Hidupkan saklar di atas untuk memakainya.',
+            'term.ph': 'ketik perintah…', 'term.phInput': 'kirim teks ke perintah yang berjalan…',
+            'term.run': 'Jalankan', 'term.send': 'Kirim', 'term.stop': 'Stop', 'term.clear': 'Bersihkan layar',
+            'term.histUp': 'Perintah sebelumnya', 'term.histDown': 'Perintah berikutnya', 'term.quick': 'Perintah cepat (isi kolom, belum dijalankan)',
+            'term.ready': 'Terminal siap · {who} · shell {shell}',
+            'term.attached': 'tersambung kembali ke perintah yang masih berjalan',
+            'term.done': 'selesai · kode {c} · {t}', 'term.killed': 'dihentikan ({s}) · {t}',
+            'term.cut': '[output lama dipotong]', 'term.lost': 'koneksi terputus, mencoba lagi…',
+            'term.sessionEnd': 'Sesi login berakhir. Silakan login ulang.', 'term.toggleFail': 'Gagal mengubah pengaturan terminal',
+
             'sys.cpu': 'CPU', 'sys.ram': 'RAM', 'sys.flash': 'Flash Disk',
             'sys.usageCpu': 'Penggunaan CPU', 'sys.usageRam': 'Penggunaan RAM',
             'sys.cores': '{n} inti', 'sys.load': 'beban {l}', 'sys.uptime': 'menyala {t}',
@@ -245,6 +258,19 @@
             'set.title': 'Settings', 'set.langTitle': 'Language',
             'set.langDesc': 'This language applies to all text on the web, including popups and server messages.',
             'set.id': 'Bahasa Indonesia', 'set.en': 'English', 'set.zh': '中文', 'set.saveFail': 'Failed to save language',
+
+            'term.title': 'Terminal',
+            'term.desc': 'Run Termux commands from the web. Commands run on the server phone as the Termux user (for root: su -c "command"). Background jobs: nohup command > log 2>&1 &. Full-screen apps (nano, vim, top) are not supported.',
+            'term.warn': 'Be careful: anyone who manages to log in can run any command on this phone. Use a strong password and do not expose the port to the internet without HTTPS/VPN.',
+            'term.switch': 'Enable terminal', 'term.offMsg': 'The terminal is turned off. Switch it on above to use it.',
+            'term.ph': 'type a command…', 'term.phInput': 'send text to the running command…',
+            'term.run': 'Run', 'term.send': 'Send', 'term.stop': 'Stop', 'term.clear': 'Clear screen',
+            'term.histUp': 'Previous command', 'term.histDown': 'Next command', 'term.quick': 'Quick commands (fills the box, does not run)',
+            'term.ready': 'Terminal ready · {who} · shell {shell}',
+            'term.attached': 'reconnected to a command that is still running',
+            'term.done': 'finished · code {c} · {t}', 'term.killed': 'stopped ({s}) · {t}',
+            'term.cut': '[older output was cut]', 'term.lost': 'connection lost, retrying…',
+            'term.sessionEnd': 'Your login session has ended. Please log in again.', 'term.toggleFail': 'Failed to change the terminal setting',
 
             'sys.cpu': 'CPU', 'sys.ram': 'RAM', 'sys.flash': 'Flash Drive',
             'sys.usageCpu': 'CPU Usage', 'sys.usageRam': 'RAM Usage',
@@ -371,6 +397,19 @@
             'set.langDesc': '此语言将应用于网页中的所有文字，包括弹窗和服务器消息。',
             'set.id': 'Bahasa Indonesia', 'set.en': 'English', 'set.zh': '中文', 'set.saveFail': '保存语言失败',
 
+            'term.title': '终端',
+            'term.desc': '通过网页运行 Termux 命令。命令以 Termux 用户身份在服务器手机上执行（需要 root：su -c "命令"）。后台任务：nohup 命令 > log 2>&1 &。不支持全屏程序（nano、vim、top）。',
+            'term.warn': '请注意：任何成功登录的人都可以在这部手机上运行任意命令。请使用强密码，未使用 HTTPS/VPN 时不要把端口暴露到互联网。',
+            'term.switch': '启用终端', 'term.offMsg': '终端已关闭。请打开上方开关后使用。',
+            'term.ph': '输入命令……', 'term.phInput': '向正在运行的命令发送文字……',
+            'term.run': '运行', 'term.send': '发送', 'term.stop': '停止', 'term.clear': '清屏',
+            'term.histUp': '上一条命令', 'term.histDown': '下一条命令', 'term.quick': '快捷命令（仅填入输入框，不会运行）',
+            'term.ready': '终端就绪 · {who} · shell {shell}',
+            'term.attached': '已重新连接到仍在运行的命令',
+            'term.done': '已完成 · 退出码 {c} · {t}', 'term.killed': '已停止（{s}）· {t}',
+            'term.cut': '[较早的输出已被截断]', 'term.lost': '连接中断，正在重试……',
+            'term.sessionEnd': '登录已过期，请重新登录。', 'term.toggleFail': '更改终端设置失败',
+
             'sys.cpu': 'CPU', 'sys.ram': '内存', 'sys.flash': 'U 盘',
             'sys.usageCpu': 'CPU 使用率', 'sys.usageRam': '内存使用率',
             'sys.cores': '{n} 核', 'sys.load': '负载 {l}', 'sys.uptime': '已运行 {t}',
@@ -414,6 +453,7 @@
             if (typeof mon !== 'undefined' && mon.snap && typeof renderMonitor === 'function') renderMonitor(mon.snap);
             if (typeof dr !== 'undefined' && dr.s && typeof renderDoor === 'function') renderDoor(dr.s);
             if (typeof renderSystem === 'function') renderSystem();
+            if (typeof termRender === 'function') termRender();
             if (typeof refreshTopoCount === 'function') refreshTopoCount();
             if (typeof loggedIn !== 'undefined' && loggedIn && typeof loadStorageStatus === 'function') loadStorageStatus();
         } catch (e) { }

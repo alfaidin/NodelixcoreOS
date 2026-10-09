@@ -94,7 +94,7 @@ app.use(express.json());
 // Bahasa aktif boleh dibaca sebelum login (halaman login ikut bahasa tersimpan)
 app.get('/api/settings/lang', (req, res) => res.json({ lang: env('LANGUAGE', 'id') }));
 // Semua API data, file, dan ESP32 wajib login (halaman login di /public tetap terbuka)
-app.use(['/api/files', '/api/create-folder', '/api/download', '/api/upload', '/api/rename', '/api/paste', '/api/storage', '/api/compress', '/api/esp32', '/api/door', '/api/system', '/api/settings', '/uploads'], requireAuth);
+app.use(['/api/files', '/api/create-folder', '/api/download', '/api/upload', '/api/rename', '/api/paste', '/api/storage', '/api/compress', '/api/esp32', '/api/door', '/api/system', '/api/settings', '/api/terminal', '/uploads'], requireAuth);
 
 // Ganti bahasa web (disimpan ke .env, berlaku untuk semua tulisan termasuk pesan server)
 app.post('/api/settings/lang', (req, res) => {
@@ -184,6 +184,8 @@ const esp32 = require('./esp32')({ app, broadcast, notify });
 const door = require('./door')({ app, broadcast, notify });
 // ================= MONITOR SISTEM (CPU/RAM/flash disk) =================
 const system = require('./system')({ app, broadcast });
+// ================= TERMINAL COMMAND (Pengaturan > Terminal) =================
+require('./terminal')({ app, saveEnv });
 
 wss.on('connection', ws => {
     broadcast({ type: 'DEVICE_COUNT', count: wss.clients.size });
@@ -193,7 +195,7 @@ wss.on('connection', ws => {
 });
 
 // ================= FILE MANAGER (flash disk lewat su) =================
-// Semua file/folder ada di <STORAGE_DEVICE>/<STORAGE_FOLDER> (default /mnt/media_rw/8EB1-829D/upload).
+// Semua file/folder ada di <STORAGE_DEVICE>/<STORAGE_FOLDER>; satu flash disk terpasang dideteksi otomatis.
 // Folder "upload" dibuat otomatis kalau belum ada; kalau sudah ada, dipakai apa adanya.
 const upload = multer({ storage: storage.engine() });
 const wrap = fn => async (req, res) => {

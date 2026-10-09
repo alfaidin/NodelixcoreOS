@@ -452,6 +452,35 @@
                             <button id="lang-btn-zh" class="lang-b" onclick="setLang('zh')"><i class="fa-solid fa-check"></i><span data-i18n="set.zh">中文</span></button>
                         </div>
                     </div>
+
+                    <div class="card" id="term-card">
+                        <div class="head" style="margin-bottom:6px">
+                            <span class="mut" data-i18n="term.title">Terminal</span>
+                            <span style="display:flex;align-items:center;gap:4px">
+                                <button type="button" class="ib" id="term-clear" onclick="termClear()" aria-label="Bersihkan layar" title="Bersihkan layar"><i class="fa-solid fa-eraser"></i></button>
+                                <button type="button" class="tm-sw" id="term-switch" role="switch" aria-checked="true" aria-label="Aktifkan terminal" onclick="termToggle()"><span class="sw"></span></button>
+                            </span>
+                        </div>
+                        <p class="dr-hint" style="margin:8px 0 12px" data-i18n="term.desc">Jalankan perintah Termux dari web.</p>
+                        <div id="term-body">
+                            <div class="tm-screen" id="term-out" role="log" aria-live="off" tabindex="0"></div>
+                            <div class="tm-chips" id="term-chips" role="group" aria-label="Perintah cepat"></div>
+                            <form class="tm-form" id="term-form" onsubmit="termSubmit(event)">
+                                <div class="tm-line">
+                                    <span class="tm-ps" id="term-ps">$</span>
+                                    <input type="text" class="tm-in" id="term-in" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" data-i18n-ph="term.ph" placeholder="ketik perintah…">
+                                </div>
+                                <div class="tm-btns">
+                                    <button type="button" class="ib" id="term-up" onclick="termHist(-1)" aria-label="Perintah sebelumnya"><i class="fa-solid fa-chevron-up"></i></button>
+                                    <button type="button" class="ib" id="term-down" onclick="termHist(1)" aria-label="Perintah berikutnya"><i class="fa-solid fa-chevron-down"></i></button>
+                                    <button type="submit" class="dr-card-b" id="term-run" data-i18n="term.run">Jalankan</button>
+                                    <button type="button" class="dr-card-b alt" id="term-stop" onclick="termStop()" hidden data-i18n="term.stop">Stop</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="tm-off" id="term-offmsg" hidden data-i18n="term.offMsg">Terminal sedang dimatikan.</div>
+                        <p class="dr-hint" style="margin-top:12px" data-i18n="term.warn">Hati-hati.</p>
+                    </div>
                 </div>
             </section>
         </main>
@@ -610,6 +639,7 @@
 
         async function handleLogout() {
             loggedIn = false;
+            if (window.termReset) termReset();
             if (ws) ws.close();
             try { await fetch('/api/logout', { method: 'POST' }); } catch (e) { }
             showView('view-login');
@@ -625,6 +655,7 @@
             if (tab === 'door' && window.loadDoor) loadDoor();
             if (tab === 'storage') { loadFileList(); if (window.loadStorageStatus) loadStorageStatus(); }
             if (tab === 'system' && window.loadSystem) loadSystem();
+            if (tab === 'settings' && window.loadTerminal) loadTerminal();
             if (window.innerWidth < 768) document.getElementById('sidebar').classList.add('-translate-x-full');
         }
 
@@ -1209,5 +1240,6 @@
     <script src="door.js"></script>
     <script src="upload.js"></script>
     <script src="system.js"></script>
+    <script src="terminal.js"></script>
 </body>
 </html>
