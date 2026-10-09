@@ -7,10 +7,11 @@ const path = require('path');
 
 const E = (k, d) => (process.env[k] === undefined || process.env[k] === '') ? d : process.env[k];
 const T = require('./lang');   // pesan error sesuai bahasa aktif (LANGUAGE di .env)
-const DEVICE = E('STORAGE_DEVICE', '/mnt/media_rw/8EB1-829D');
+const DEVICE = E('STORAGE_DEVICE', '');
 const FOLDER = E('STORAGE_FOLDER', 'upload');
-// dev/ROOT bisa berpindah otomatis bila root melihat flash disk di lokasi lain (lihat resolveDevice)
-let dev = DEVICE, ROOT = DEVICE + '/' + FOLDER, lastDiag = '', okAt = 0, resolving = null;
+// Volume dipilih saat runtime agar flash disk dengan ID mount berbeda tetap bisa dipakai.
+const isMountPath = p => /^\/(?:mnt\/media_rw|mnt\/runtime\/(?:write|default)|mnt\/pass_through\/0|storage)\/[^/]+(?:\/|$)/.test(p);
+let dev = DEVICE, ROOT = DEVICE ? DEVICE + '/' + FOLDER : '', mountRequired = isMountPath(DEVICE), lastDiag = '', okAt = 0, resolving = null;
 // root = lewat su | direct = tanpa su (node sudah root, atau folder biasa)
 const MODE = E('STORAGE_MODE', (process.getuid && process.getuid() === 0) ? 'direct' : 'root');
 const PREFIX = process.env.PREFIX || '/data/data/com.termux/files/usr';
@@ -22,7 +23,7 @@ const ZIPOPT = '-1 -qr -n .zip:.7z:.rar:.gz:.tgz:.bz2:.xz:.mp4:.mkv:.avi:.mov:.w
 const zipCmd = word => `LD_LIBRARY_PATH=${q(PREFIX + '/lib')} ${q(ZIP)} ${ZIPOPT} - ${word}`;
 const q = s => `'${String(s).replace(/'/g, `'\\''`)}'`;                      // quoting aman untuk shell
 // Jangan pernah menulis kalau flash disk belum terpasang (kalau tidak, file masuk ke RAM /mnt)
-const G = () => `[ -d ${q(dev)} ] || exit 3; `;
+const G = () => `[ -d ${q(dev)} ]${mountRequired ? ` && grep -F ${q(' ' + dev + ' ')} /proc/mounts >/dev/null` : ''} || exit 3; `;
 const sh = cmd => MODE === 'direct' ? ['sh', ['-c', cmd]] : [SU, ['-c', cmd]];
 
 // Path relatif dari UI -> path absolut di flash disk, tidak bisa keluar dari folder upload
@@ -64,7 +65,7 @@ function run(cmd, timeout = 30000) {
 function explain(r, fb) {
   fb = fb || T('st.fail');
   if (r.err === 'ENOENT') return T('st.noSu');
-  if (r.code === 3) return lastDiag || T('st.noDisk', { dev });
+  if (r.code === 3) return lastDiag || T('st.noDisk');
   if (r.code === 127) return T('st.noZip');
   if (r.code === 4) return T('st.notFound');
   if (r.code === 17) return T('st.exists');
@@ -79,39 +80,43 @@ function fail(r, fb) {
 }
 async function exec(cmd, fb, timeout) { const r = await run(cmd, timeout); if (r.code !== 0) throw fail(r, fb); return r; }
 
-// Cari flash disk: lokasi dari .env dulu, lalu jalur alternatif Android. Kalau tidak ketemu, jelaskan apa yang terlihat oleh root.
+// Deteksi satu volume eksternal terpasang tanpa mengandalkan ID mount yang tetap.
 async function resolveDevice() {
-  const id = path.posix.basename(DEVICE);
-  const cands = [...new Set([DEVICE, `/storage/${id}`, `/mnt/runtime/write/${id}`, `/mnt/runtime/default/${id}`, `/mnt/pass_through/0/${id}`])];
+  const id = DEVICE ? path.posix.basename(DEVICE) : '';
+  const cands = DEVICE ? [...new Set([DEVICE, `/storage/${id}`, `/mnt/runtime/write/${id}`, `/mnt/runtime/default/${id}`, `/mnt/pass_through/0/${id}`])] : [];
   const probe = cands.map(c => `[ -d ${q(c)} ] && { echo "FOUND ${c}"; exit 0; }`).join('; ');
-  const r = await run(`${probe}; echo "UID $(id -u 2>&1)"; echo "MR $(ls -1 /mnt/media_rw 2>&1 | head -6 | tr '\\n' ' ')"; echo "ST $(ls -1 /storage 2>&1 | head -8 | tr '\\n' ' ')"; exit 3`, 45000);
-  const found = /^FOUND (.+)$/m.exec(r.out);
-  if (found) {
-    if (found[1] !== dev) { dev = found[1]; ROOT = dev + '/' + FOLDER; console.log(`[Penyimpanan] Flash disk dipakai dari ${dev}`); }
+  const r = await run(`echo "UID $(id -u 2>&1)"; echo "MR $(ls -1 /mnt/media_rw 2>&1 | tr '\\n' ' ')"; found=0; for c in /mnt/media_rw/*; do [ -d "$c" ] || continue; found=1; printf 'VOL %s\\n' "$c"; done; if [ "$found" = 0 ]; then for c in /storage/*; do case "\${c##*/}" in emulated|self|primary|sdcard0) continue ;; esac; [ -d "$c" ] && printf 'VOL %s\\n' "$c"; done; fi; echo "ST $(ls -1 /storage 2>&1 | head -8 | tr '\\n' ' ')"; ${probe ? probe + '; ' : ''}exit 3`, 45000);
+  const vols = [...r.out.matchAll(/^VOL (.+)$/gm)].map(m => m[1]);
+  const configured = /^FOUND (.+)$/m.exec(r.out);
+  let selected = '';
+  if (vols.length === 1) selected = vols[0];
+  else if (vols.length > 1 && configured) selected = configured[1];
+  else if (!vols.length && configured) selected = configured[1];
+  if (selected) {
+    mountRequired = vols.includes(selected) || isMountPath(selected);
+    if (selected !== dev) { dev = selected; ROOT = dev + '/' + FOLDER; console.log(`[Penyimpanan] Flash disk dipakai dari ${dev}`); }
     lastDiag = ''; okAt = Date.now();
     return { ok: true };
   }
   okAt = 0;
+  if (!DEVICE) { dev = ''; ROOT = ''; mountRequired = false; }
   if (r.code !== 3) { lastDiag = ''; return { ok: false, message: explain(r) }; }
   const g = k => ((new RegExp('^' + k + ' (.*)$', 'm')).exec(r.out) || [])[1] || '';
   const uid = g('UID').trim(), mr = g('MR').trim(), stg = g('ST').trim();
-  let msg = T('rd.notFound', { dev: DEVICE });
+  let msg = T('rd.notFound');
   if (uid && uid !== '0') msg += MODE === 'direct' ? T('rd.notRoot') : T('rd.suDenied', { uid });
   else if (/no such|denied|not found|can't/i.test(mr)) msg += T('rd.noMr');
-  else if (mr) {
-    const vols = mr.split(/\s+/).filter(Boolean);
-    msg += T('rd.vols', { vols: vols.join(', ') });
-    if (E('STORAGE_AUTO', 'false') === 'true' && vols.length === 1) {
-      dev = `/mnt/media_rw/${vols[0]}`; ROOT = dev + '/' + FOLDER; lastDiag = ''; okAt = Date.now();
-      console.log(`[Penyimpanan] STORAGE_AUTO: memakai ${dev}`);
-      return { ok: true };
-    }
-  } else msg += T('rd.empty') + (stg && !/no such|denied|cannot|can't/i.test(stg) ? T('rd.storageIs', { stg }) : '') + '.';
+  else if (vols.length > 1) msg += T('rd.vols', { vols: vols.map(v => path.posix.basename(v)).join(', ') });
+  else msg += T('rd.empty') + (stg && !/no such|denied|cannot|can't/i.test(stg) ? T('rd.storageIs', { stg }) : '') + '.';
   lastDiag = msg;
   return { ok: false, message: msg };
 }
 async function ensure() {
-  if (Date.now() - okAt < 20000) return;
+  if (Date.now() - okAt < 20000) {
+    const live = await run(`${G()}exit 0`);
+    if (live.code === 0) return;
+    okAt = 0;
+  }
   if (!resolving) resolving = resolveDevice().finally(() => { resolving = null; });
   await resolving;
 }
@@ -222,29 +227,31 @@ async function send(res, rel, { inline = false, zip = false } = {}) {
 function engine() {
   return {
     _handleFile(req, file, cb) {
-      const dir = abs(req.query.dir || ''), name = cleanName(fixName(file.originalname));
-      if (!name) return cb(new Error(T('st.badFileName')));
-      const dest = dir + '/' + name, tmp = `${dest}.${Date.now().toString(36)}.part`;
-      const [bin, args] = sh(`${G()}mkdir -p ${q(dir)} && cat > ${q(tmp)}`);
-      const c = spawn(bin, args, { stdio: ['pipe', 'ignore', 'pipe'] });
-      let bytes = 0, err = '', ended = false, finished = false;
-      const finish = (e, info) => { if (finished) return; finished = true; if (e) { c.kill(); run(`rm -f ${q(tmp)}`); } cb(e, info); };
-      c.stderr.on('data', d => err += d);
-      c.stdin.on('error', () => { });
-      c.on('error', e => finish(fail({ code: -1, err: e.code === 'ENOENT' ? 'ENOENT' : e.message }, T('st.saveFail'))));
-      file.stream.on('data', d => { bytes += d.length; });
-      file.stream.on('end', () => { ended = true; });
-      file.stream.on('error', e => finish(e));
-      file.stream.pipe(c.stdin);
-      req.on('close', () => { if (!req.complete) finish(new Error(T('st.uploadCancel'))); });
-      c.on('close', async code => {
-        if (finished) return;
-        if (code !== 0 || !ended) return finish(fail({ code: code || 5, err }, T('st.writeFail')));
-        const r = await run(`${G()}[ "$(stat -c %s ${q(tmp)})" = "${bytes}" ] && mv -f ${q(tmp)} ${q(dest)}`, 120000);
-        r.code === 0 ? finish(null, { path: dest, filename: name, size: bytes }) : finish(fail(r, T('st.saveFileFail')));
-      });
+      ensure().then(() => {
+        const dir = abs(req.query.dir || ''), name = cleanName(fixName(file.originalname));
+        if (!name) return cb(new Error(T('st.badFileName')));
+        const dest = dir + '/' + name, tmp = `${dest}.${Date.now().toString(36)}.part`;
+        const [bin, args] = sh(`${G()}mkdir -p ${q(dir)} && cat > ${q(tmp)}`);
+        const c = spawn(bin, args, { stdio: ['pipe', 'ignore', 'pipe'] });
+        let bytes = 0, err = '', ended = false, finished = false;
+        const finish = (e, info) => { if (finished) return; finished = true; if (e) { c.kill(); run(`${G()}rm -f ${q(tmp)}`); } cb(e, info); };
+        c.stderr.on('data', d => err += d);
+        c.stdin.on('error', () => { });
+        c.on('error', e => finish(fail({ code: -1, err: e.code === 'ENOENT' ? 'ENOENT' : e.message }, T('st.saveFail'))));
+        file.stream.on('data', d => { bytes += d.length; });
+        file.stream.on('end', () => { ended = true; });
+        file.stream.on('error', e => finish(e));
+        file.stream.pipe(c.stdin);
+        req.on('close', () => { if (!req.complete) finish(new Error(T('st.uploadCancel'))); });
+        c.on('close', async code => {
+          if (finished) return;
+          if (code !== 0 || !ended) return finish(fail({ code: code || 5, err }, T('st.writeFail')));
+          const r = await run(`${G()}[ "$(stat -c %s ${q(tmp)})" = "${bytes}" ] && mv -f ${q(tmp)} ${q(dest)}`, 120000);
+          r.code === 0 ? finish(null, { path: dest, filename: name, size: bytes }) : finish(fail(r, T('st.saveFileFail')));
+        });
+      }).catch(cb);
     },
-    _removeFile(req, file, cb) { run(`rm -f ${q(file.path)}`).then(() => cb(null)); }
+    _removeFile(req, file, cb) { exec(`${G()}rm -f ${q(file.path)}`, T('st.removeFail')).then(() => cb(null), cb); }
   };
 }
 

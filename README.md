@@ -18,6 +18,7 @@ Project ini menyediakan antarmuka web untuk mengelola penyimpanan dan berkomunik
 * Penyimpanan pada flash disk / external storage
 * Dukungan storage melalui Termux
 * Monitoring status storage
+* Terminal perintah melalui web (dapat dimatikan di Pengaturan)
 * Integrasi ESP32
 * Integrasi ESP8266/ESP lock door
 * WebSocket untuk komunikasi real-time
@@ -27,6 +28,10 @@ Project ini menyediakan antarmuka web untuk mengelola penyimpanan dan berkomunik
 * Dukungan multi-bahasa
 * Penyimpanan konfigurasi kalibrasi
 * Sistem migrasi storage dari penyimpanan lama ke storage eksternal
+
+### Flash disk
+
+Flash disk yang terpasang dideteksi otomatis, jadi ID/nama mount tidak perlu diubah saat mengganti flash disk. Pastikan hanya satu volume eksternal yang terpasang agar aplikasi dapat memilihnya dengan aman; jika beberapa volume terpasang sekaligus, aplikasi meminta volume lain dilepas. Folder penyimpanan di setiap flash disk adalah `upload` secara default.
 
 ## code
 
@@ -48,6 +53,7 @@ server8/
 ├── door.js
 ├── storage.js
 ├── system.js
+├── terminal.js
 ├── lang.js
 ├── migrate.js
 ├── package.json
@@ -63,6 +69,7 @@ server8/
     ├── monitor.css
     ├── door.js
     ├── system.js
+    ├── terminal.js
     ├── upload.js
     ├── ui.js
     └── i18n.js
@@ -214,6 +221,12 @@ LANGUAGE=id
 
 File `lang.js` menangani teks dan pesan yang digunakan aplikasi.
 
+## Terminal Web
+
+Terminal tersedia di tab **Pengaturan** untuk menjalankan perintah pada perangkat server. Fitur ini aktif secara default dan dapat dimatikan melalui saklar terminal atau dengan mengubah `TERMINAL_ENABLED` di `.env`. Batas waktu, ukuran output, jumlah proses bersamaan, shell, dan folder awal dapat diatur melalui variabel `TERMINAL_*` di `.env` atau dilihat di `.env.example`.
+
+Terminal memberikan akses menjalankan perintah pada perangkat server. Gunakan hanya pada jaringan tepercaya, lindungi akun administrator, dan matikan fitur ini jika tidak diperlukan.
+
 ## Migrasi Storage
 
 Jika diperlukan:
@@ -346,4 +359,3 @@ Berikut adalah panduan koneksi dan skema pin hardware mikrokontroler yang terhub
   * Relay 1 & 2 (Paralel) ➔ `GPIO 26`
   * Relay 3 ➔ `GPIO 27`
   * Relay 4 ➔ `GPIO 32`
-
