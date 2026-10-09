@@ -242,7 +242,7 @@ Pastikan storage tujuan tersedia dan dapat ditulis sebelum melakukan migrasi.
 Ambil perubahan terbaru:
 
 ```bash
-git pull
+git pull origin main
 ```
 
 Jika dependency berubah:
@@ -255,17 +255,6 @@ Kemudian:
 
 ```bash
 npm start
-```
-
-## Update ke GitHub
-
-Setelah melakukan perubahan:
-
-```bash
-git status
-git add .
-git commit -m "Update server"
-git push
 ```
 
 ## Keamanan
@@ -295,12 +284,6 @@ Dependency lengkap ditentukan oleh:
 ```text
 package.json
 package-lock.json
-```
-
-Install dengan:
-
-```bash
-npm install
 ```
 
 ## Lisensi
