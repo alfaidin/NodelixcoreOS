@@ -304,7 +304,7 @@ Project `NodelixcoreOS` dikembangkan sebagai server lokal/IoT berbasis Node.js u
 
 ## Skema Pemasangan Pin (Pinout Wiring)
 
-Berikut adalah panduan koneksi dan skema pin hardware mikrokontroler yang terhubung ke sistem Server8:
+Berikut adalah panduan koneksi dan skema pin hardware mikrokontroler yang terhubung ke sistem :
 
 ## 1. ESP8266 (Door Lock RFID & LCD)
 
