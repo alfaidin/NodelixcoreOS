@@ -28,6 +28,7 @@ Project ini menyediakan antarmuka web untuk mengelola penyimpanan dan berkomunik
 * Dukungan multi-bahasa
 * Penyimpanan konfigurasi kalibrasi
 * Sistem migrasi storage dari penyimpanan lama ke storage eksternal
+* penambahan DHT11 
 
 ### Flash disk
 
